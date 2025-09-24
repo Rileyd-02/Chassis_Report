@@ -80,7 +80,22 @@ if planning_df is not None and sub_df is not None and st.button("Map Subchassis"
         if style_col_sub != style_col_plan:
             merged_df.drop(columns=[style_col_sub], inplace=True)
 
-        # Save with highlights for missing LatestSubChassis
+        # --- Summary metrics ---
+        total_rows = len(merged_df)
+        matched_rows = merged_df["LatestSubChassis"].notna().sum()
+        unmatched_rows = merged_df["LatestSubChassis"].isna().sum()
+
+        st.subheader("📈 Mapping Summary")
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Total Rows", total_rows)
+        col2.metric("Matched Styles", matched_rows, delta=f"{matched_rows/total_rows:.0%}")
+        col3.metric("Unmatched Styles", unmatched_rows, delta=f"{unmatched_rows/total_rows:.0%}")
+
+        # --- Preview in Streamlit ---
+        st.subheader("🔎 Preview of Mapped Data")
+        st.dataframe(merged_df.head(50))  # Show first 50 rows for speed
+
+        # --- Save with highlights ---
         output = BytesIO()
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
             merged_df.to_excel(writer, index=False, sheet_name="Mapped Data")
@@ -94,7 +109,7 @@ if planning_df is not None and sub_df is not None and st.button("Map Subchassis"
 
         st.success("✅ Mapping complete!")
         st.download_button(
-            label="Download Mapped Excel File",
+            label="📥 Download Mapped Excel File",
             data=output.getvalue(),
             file_name="Mapped_Planning_Sheet.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
