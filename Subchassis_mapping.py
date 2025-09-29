@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 from io import BytesIO
 from openpyxl.styles import PatternFill
-import plotly.express as px
 
 st.set_page_config(page_title="Subchassis Mapper", layout="wide")
 
@@ -34,10 +33,6 @@ if uploaded_planning:
 # --- Step 2: Upload Subchassis Reference File ---
 uploaded_sub = st.file_uploader("Upload Subchassis Reference File", type=["xlsx"])
 sub_df = None
-style_col_sub = None
-customer_col = None
-dept_col = None
-season_col = None
 
 if uploaded_sub:
     sub_excel = pd.ExcelFile(uploaded_sub, engine="openpyxl")
@@ -56,12 +51,40 @@ if uploaded_sub:
     dept_col = st.selectbox("Select Department Column", sub_df.columns)
     season_col = st.selectbox("Select Season Column (Optional)", ["<None>"] + list(sub_df.columns))
 
-# --- Step 3: Process Mapping ---
+    # --- Step 3: Add Filters ---
+    with st.expander("🔎 Apply Filters (Optional)"):
+        customer_filter = st.multiselect(
+            "Filter by Customer",
+            options=sub_df[customer_col].dropna().unique(),
+            default=sub_df[customer_col].dropna().unique()
+        )
+        dept_filter = st.multiselect(
+            "Filter by Department",
+            options=sub_df[dept_col].dropna().unique(),
+            default=sub_df[dept_col].dropna().unique()
+        )
+        season_filter = None
+        if season_col != "<None>":
+            season_filter = st.multiselect(
+                "Filter by Season",
+                options=sub_df[season_col].dropna().unique(),
+                default=sub_df[season_col].dropna().unique()
+            )
+
+# --- Step 4: Process Mapping ---
 if planning_df is not None and sub_df is not None and st.button("Map Subchassis"):
     try:
         # Clean style columns
         planning_df[style_col_plan] = planning_df[style_col_plan].astype(str).str.strip()
         sub_df[style_col_sub] = sub_df[style_col_sub].astype(str).str.strip()
+
+        # Apply filters
+        sub_filtered = sub_df[
+            sub_df[customer_col].isin(customer_filter) &
+            sub_df[dept_col].isin(dept_filter)
+        ]
+        if season_filter is not None:
+            sub_filtered = sub_filtered[sub_filtered[season_col].isin(season_filter)]
 
         # Always include style + latestsubchassis + customer + department (+ season if selected)
         merge_cols = [style_col_sub, "LatestSubChassis", customer_col, dept_col]
@@ -71,7 +94,7 @@ if planning_df is not None and sub_df is not None and st.button("Map Subchassis"
         # Merge
         merged_df = pd.merge(
             planning_df,
-            sub_df[merge_cols],
+            sub_filtered[merge_cols],
             left_on=style_col_plan,
             right_on=style_col_sub,
             how="left"
@@ -81,69 +104,38 @@ if planning_df is not None and sub_df is not None and st.button("Map Subchassis"
         if style_col_sub != style_col_plan:
             merged_df.drop(columns=[style_col_sub], inplace=True)
 
-        # --- Filtering ---
-        cust_options = sub_df[customer_col].dropna().unique().tolist()
-        dept_options = sub_df[dept_col].dropna().unique().tolist()
-        season_options = sub_df[season_col].dropna().unique().tolist() if season_col != "<None>" else []
+        # --- Summary ---
+        total_styles = len(planning_df)
+        matched_styles = merged_df["LatestSubChassis"].notna().sum()
+        unmatched_styles = total_styles - matched_styles
 
-        selected_customer = st.multiselect("Filter by Customer", cust_options)
-        selected_department = st.multiselect("Filter by Department", dept_options)
-        selected_season = st.multiselect("Filter by Season", season_options) if season_options else []
-
-        filtered_df = merged_df.copy()
-        if selected_customer:
-            filtered_df = filtered_df[filtered_df[customer_col].isin(selected_customer)]
-        if selected_department:
-            filtered_df = filtered_df[filtered_df[dept_col].isin(selected_department)]
-        if selected_season and season_col != "<None>":
-            filtered_df = filtered_df[filtered_df[season_col].isin(selected_season)]
-
-        # --- Summary Box ---
-        total_rows = len(filtered_df)
-        unique_styles = filtered_df[style_col_plan].nunique()
-        missing_subchassis = filtered_df["LatestSubChassis"].isna().sum()
-
-        st.markdown("### 📊 Filtered Summary")
-        st.info(f"""
-        - **Total Rows:** {total_rows}  
-        - **Unique Styles:** {unique_styles}  
-        - **Missing Subchassis:** {missing_subchassis}  
+        st.subheader("📋 Summary")
+        st.markdown(f"""
+        - **Total Styles in Planning File:** {total_styles}  
+        - **Mapped Styles:** ✅ {matched_styles}  
+        - **Unmapped Styles:** ❌ {unmatched_styles}  
         """)
 
-        # --- Chart ---
-        if total_rows > 0:
-            st.markdown("### 📈 Distribution Chart")
-            chart_dim = st.radio("Select field to visualize", [customer_col, dept_col] + ([season_col] if season_col != "<None>" else []))
-            fig = px.bar(
-                filtered_df.groupby(chart_dim).size().reset_index(name="Count"),
-                x=chart_dim,
-                y="Count",
-                title=f"Distribution by {chart_dim}",
-                text="Count"
-            )
-            fig.update_traces(textposition="outside")
-            st.plotly_chart(fig, use_container_width=True)
-
-        # --- Preview ---
-        st.markdown("### 🔍 Preview of Filtered Data")
-        st.dataframe(filtered_df.head(20))
+        # --- Preview first 20 rows ---
+        st.subheader("👀 Preview of Mapped Data")
+        st.dataframe(merged_df.head(20))
 
         # Save with highlights for missing LatestSubChassis
         output = BytesIO()
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
-            filtered_df.to_excel(writer, index=False, sheet_name="Mapped Data")
+            merged_df.to_excel(writer, index=False, sheet_name="Mapped Data")
             ws = writer.sheets["Mapped Data"]
 
             red_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
-            latest_col_idx = filtered_df.columns.get_loc("LatestSubChassis") + 1
-            for row_idx, value in enumerate(filtered_df["LatestSubChassis"], start=2):
+            latest_col_idx = merged_df.columns.get_loc("LatestSubChassis") + 1
+            for row_idx, value in enumerate(merged_df["LatestSubChassis"], start=2):
                 if pd.isna(value):
                     ws.cell(row=row_idx, column=latest_col_idx).fill = red_fill
 
         st.download_button(
-            label="Download Filtered Excel File",
+            label="⬇️ Download Mapped Excel File",
             data=output.getvalue(),
-            file_name="Filtered_Mapped_Planning_Sheet.xlsx",
+            file_name="Mapped_Planning_Sheet.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
