@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from io import BytesIO
 from openpyxl.styles import PatternFill
+import plotly.express as px
 
 st.set_page_config(page_title="Subchassis Mapper", layout="wide")
 
@@ -80,38 +81,69 @@ if planning_df is not None and sub_df is not None and st.button("Map Subchassis"
         if style_col_sub != style_col_plan:
             merged_df.drop(columns=[style_col_sub], inplace=True)
 
-        # --- Summary metrics ---
-        total_rows = len(merged_df)
-        matched_rows = merged_df["LatestSubChassis"].notna().sum()
-        unmatched_rows = merged_df["LatestSubChassis"].isna().sum()
+        # --- Filtering ---
+        cust_options = sub_df[customer_col].dropna().unique().tolist()
+        dept_options = sub_df[dept_col].dropna().unique().tolist()
+        season_options = sub_df[season_col].dropna().unique().tolist() if season_col != "<None>" else []
 
-        st.subheader("📈 Mapping Summary")
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Total Rows", total_rows)
-        col2.metric("Matched Styles", matched_rows, delta=f"{matched_rows/total_rows:.0%}")
-        col3.metric("Unmatched Styles", unmatched_rows, delta=f"{unmatched_rows/total_rows:.0%}")
+        selected_customer = st.multiselect("Filter by Customer", cust_options)
+        selected_department = st.multiselect("Filter by Department", dept_options)
+        selected_season = st.multiselect("Filter by Season", season_options) if season_options else []
 
-        # --- Preview in Streamlit ---
-        st.subheader("🔎 Preview of Mapped Data")
-        st.dataframe(merged_df.head(50))  # Show first 50 rows for speed
+        filtered_df = merged_df.copy()
+        if selected_customer:
+            filtered_df = filtered_df[filtered_df[customer_col].isin(selected_customer)]
+        if selected_department:
+            filtered_df = filtered_df[filtered_df[dept_col].isin(selected_department)]
+        if selected_season and season_col != "<None>":
+            filtered_df = filtered_df[filtered_df[season_col].isin(selected_season)]
 
-        # --- Save with highlights ---
+        # --- Summary Box ---
+        total_rows = len(filtered_df)
+        unique_styles = filtered_df[style_col_plan].nunique()
+        missing_subchassis = filtered_df["LatestSubChassis"].isna().sum()
+
+        st.markdown("### 📊 Filtered Summary")
+        st.info(f"""
+        - **Total Rows:** {total_rows}  
+        - **Unique Styles:** {unique_styles}  
+        - **Missing Subchassis:** {missing_subchassis}  
+        """)
+
+        # --- Chart ---
+        if total_rows > 0:
+            st.markdown("### 📈 Distribution Chart")
+            chart_dim = st.radio("Select field to visualize", [customer_col, dept_col] + ([season_col] if season_col != "<None>" else []))
+            fig = px.bar(
+                filtered_df.groupby(chart_dim).size().reset_index(name="Count"),
+                x=chart_dim,
+                y="Count",
+                title=f"Distribution by {chart_dim}",
+                text="Count"
+            )
+            fig.update_traces(textposition="outside")
+            st.plotly_chart(fig, use_container_width=True)
+
+        # --- Preview ---
+        st.markdown("### 🔍 Preview of Filtered Data")
+        st.dataframe(filtered_df.head(20))
+
+        # Save with highlights for missing LatestSubChassis
         output = BytesIO()
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
-            merged_df.to_excel(writer, index=False, sheet_name="Mapped Data")
+            filtered_df.to_excel(writer, index=False, sheet_name="Mapped Data")
             ws = writer.sheets["Mapped Data"]
 
             red_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
-            latest_col_idx = merged_df.columns.get_loc("LatestSubChassis") + 1
-            for row_idx, value in enumerate(merged_df["LatestSubChassis"], start=2):
+            latest_col_idx = filtered_df.columns.get_loc("LatestSubChassis") + 1
+            for row_idx, value in enumerate(filtered_df["LatestSubChassis"], start=2):
                 if pd.isna(value):
                     ws.cell(row=row_idx, column=latest_col_idx).fill = red_fill
 
-        st.success("✅ Mapping complete!")
         st.download_button(
-            label="📥 Download Mapped Excel File",
+            label="Download Filtered Excel File",
             data=output.getvalue(),
-            file_name="Mapped_Planning_Sheet.xlsx",
+            file_name="Filtered_Mapped_Planning_Sheet.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
