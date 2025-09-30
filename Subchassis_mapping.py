@@ -6,15 +6,28 @@ from openpyxl.styles import PatternFill
 st.set_page_config(page_title="Subchassis Mapper", layout="wide")
 
 st.title("📊 Subchassis Mapper Tool")
+
 st.markdown("""
 Upload your **Planning file** and **Subchassis reference report**.  
-You will be guided step by step to select the correct columns for mapping.
-            Step 01 - Upload planning file 
-            Step 02 - Select sheet name from the dropdown
-            Step 03 - Upload Subchassis reference report
-            Step 04 - Select sheet name, Customer Column, Department Column, Season Column
-            Step 05 - Filter the mapped documents 
+You will be guided step by step to select the correct columns for mapping.  
+
+---
+
+### 📝 Steps
+
+1️⃣ **Step 01** – Upload Planning file  
+
+2️⃣ **Step 02** – Select sheet name from the dropdown  
+
+3️⃣ **Step 03** – Upload Subchassis reference report  
+
+4️⃣ **Step 04** – Select sheet name, Customer Column, Department Column, Season Column  
+
+5️⃣ **Step 05** – Filter the mapped documents  
+
+---
 """)
+
 
 # --- Step 1: Upload Planning File ---
 uploaded_planning = st.file_uploader("Upload Planning Excel File", type=["xlsx"])
@@ -146,4 +159,5 @@ if planning_df is not None and sub_df is not None and st.button("Map Subchassis"
 
     except Exception as e:
         st.error(f"❌ An error occurred: {e}")
+
 
