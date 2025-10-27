@@ -10,86 +10,109 @@ st.set_page_config(
     page_icon="📊",
 )
 
-# --- CUSTOM CSS THEME ---
+# --- CUSTOM DARK THEME CSS ---
 st.markdown("""
 <style>
-/* General app background and font */
+/* App background and text */
 [data-testid="stAppViewContainer"] {
-    background: linear-gradient(135deg, #f0f4f8 0%, #e6ebf2 100%);
-    color: #1c1c1c;
+    background: #0b0c10;
+    color: #e5e5e5;
     font-family: 'Segoe UI', Roboto, sans-serif;
 }
 
-/* Sidebar styling */
+/* Sidebar */
 [data-testid="stSidebar"] {
-    background-color: #1e293b;
-    color: white;
-}
-[data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3, [data-testid="stSidebar"] p {
-    color: white !important;
+    background-color: #111418;
+    color: #e5e5e5;
 }
 
-/* Titles */
-h1, h2, h3 {
-    color: #0f172a;
+/* Headings */
+h1, h2, h3, h4 {
+    color: #00ff88 !important;
+    font-weight: 600;
+}
+
+/* Paragraphs and labels */
+p, label, span, div {
+    color: #d1d5db !important;
 }
 
 /* Buttons */
 div.stButton > button:first-child {
-    background-color: #2563eb;
-    color: white;
+    background: linear-gradient(90deg, #00b36b, #00ff88);
+    color: #0b0c10;
     border-radius: 8px;
     border: none;
-    padding: 0.6em 1.2em;
+    padding: 0.6em 1.4em;
     font-weight: 600;
-    transition: background-color 0.3s ease;
+    font-size: 1em;
+    transition: 0.3s ease;
 }
 div.stButton > button:first-child:hover {
-    background-color: #1d4ed8;
-}
-
-/* Success messages */
-.stSuccess {
-    background-color: #dcfce7;
-    border-left: 5px solid #16a34a;
-    padding: 0.8em;
-    border-radius: 8px;
+    background: linear-gradient(90deg, #00ff88, #00b36b);
+    transform: scale(1.05);
 }
 
 /* Expander */
 .streamlit-expanderHeader {
-    background-color: #f1f5f9 !important;
-    border-radius: 5px;
+    background-color: #1a1c22 !important;
+    color: #00ff88 !important;
     font-weight: 600;
+    border-radius: 6px;
+}
+
+/* Success boxes */
+.stSuccess {
+    background-color: rgba(0, 255, 136, 0.15);
+    border-left: 5px solid #00ff88;
+    padding: 0.8em;
+    border-radius: 8px;
+}
+
+/* Error box */
+.stError {
+    background-color: rgba(255, 0, 60, 0.15);
+    border-left: 5px solid #ff0040;
+    border-radius: 8px;
+}
+
+/* Metric cards */
+[data-testid="stMetricValue"] {
+    color: #00ff88 !important;
+    font-weight: bold;
 }
 
 /* DataFrame styling */
 [data-testid="stDataFrame"] {
-    border-radius: 10px;
+    border-radius: 8px;
     overflow: hidden;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 8px rgba(0,255,136,0.2);
+    background-color: #111418;
+}
+
+/* Divider color */
+hr {
+    border: 1px solid #1f2937;
 }
 </style>
 """, unsafe_allow_html=True)
 
 
-# --- APP HEADER ---
+# --- HEADER ---
 st.title("📊 Subchassis Mapper Tool")
-st.caption("Easily map subchassis data between Planning and Reference Excel sheets.")
+st.caption("A dark-themed data mapping tool with green highlights and smart styling.")
 st.divider()
 
-# --- INSTRUCTIONS SECTION ---
-with st.container():
-    st.markdown("""
-    ### 🧭 **How It Works**
-    1️⃣ Upload your **Planning file**  
-    2️⃣ Select the correct **Sheet and Style column**  
-    3️⃣ Upload your **Subchassis Reference Report**  
-    4️⃣ Choose **Customer, Department, and optional Season columns**  
-    5️⃣ Click **Map Subchassis** to generate results and download the mapped Excel  
-
-    ---
-    """)
+# --- INSTRUCTIONS ---
+st.markdown("""
+### ⚙️ **How to Use**
+1️⃣ Upload your **Planning File**  
+2️⃣ Choose the correct **Sheet** and **Style Column**  
+3️⃣ Upload your **Subchassis Reference Report**  
+4️⃣ Select **Customer**, **Department**, and optionally **Season**  
+5️⃣ Click **Map Subchassis** to process and download your mapped data  
+---
+""")
 
 
 # --- STEP 1: UPLOAD PLANNING FILE ---
@@ -124,7 +147,6 @@ if uploaded_sub:
     sub_df = sub_excel.parse(selected_sheet_sub)
     st.success(f"✅ Loaded subchassis sheet: {selected_sheet_sub}")
 
-    # Column selectors
     style_candidates_sub = [c for c in sub_df.columns if "style" in c.lower()]
     style_col_sub = st.selectbox("Select Style Column", style_candidates_sub if style_candidates_sub else sub_df.columns)
     customer_col = st.selectbox("Select Customer Column", sub_df.columns)
@@ -152,8 +174,8 @@ if uploaded_sub:
             )
 
 
-# --- STEP 3: PROCESS MAPPING ---
-if planning_df is not None and sub_df is not None and st.button("🚀 Map Subchassis"):
+# --- STEP 3: MAP PROCESS ---
+if planning_df is not None and sub_df is not None and st.button("💚 Map Subchassis"):
     try:
         planning_df[style_col_plan] = planning_df[style_col_plan].astype(str).str.strip()
         sub_df[style_col_sub] = sub_df[style_col_sub].astype(str).str.strip()
@@ -185,14 +207,15 @@ if planning_df is not None and sub_df is not None and st.button("🚀 Map Subcha
         unmatched_styles = total_styles - matched_styles
 
         st.subheader("📈 Mapping Summary")
-        st.metric("Total Styles", total_styles)
-        st.metric("Mapped Styles", matched_styles)
-        st.metric("Unmapped Styles", unmatched_styles)
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Total Styles", total_styles)
+        col2.metric("Mapped Styles ✅", matched_styles)
+        col3.metric("Unmapped ❌", unmatched_styles)
 
         st.subheader("👁 Preview of Mapped Data")
         st.dataframe(merged_df.head(20), use_container_width=True)
 
-        # Save with highlights for missing subchassis
+        # Save and highlight missing values
         output = BytesIO()
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
             merged_df.to_excel(writer, index=False, sheet_name="Mapped Data")
@@ -205,7 +228,7 @@ if planning_df is not None and sub_df is not None and st.button("🚀 Map Subcha
                     ws.cell(row=row_idx, column=latest_col_idx).fill = red_fill
 
         st.download_button(
-            label="💾 Download Mapped Excel File",
+            label="⬇️ Download Mapped Excel File",
             data=output.getvalue(),
             file_name="Mapped_Planning_Sheet.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
