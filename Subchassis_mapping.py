@@ -10,89 +10,80 @@ st.set_page_config(
     page_icon="📊",
 )
 
-# --- CUSTOM DARK THEME CSS ---
+# --- DARK THEME CSS ---
 st.markdown("""
 <style>
-/* App background and text */
+/* Background and text */
 [data-testid="stAppViewContainer"] {
-    background: #0b0c10;
-    color: #e5e5e5;
+    background-color: #0e1117;
+    color: #f5f5f5;
     font-family: 'Segoe UI', Roboto, sans-serif;
 }
 
 /* Sidebar */
 [data-testid="stSidebar"] {
-    background-color: #111418;
-    color: #e5e5e5;
+    background-color: #1a1d23;
+    color: #f5f5f5;
 }
 
 /* Headings */
 h1, h2, h3, h4 {
-    color: #00ff88 !important;
+    color: #ffffff !important;
     font-weight: 600;
 }
 
-/* Paragraphs and labels */
+/* General text */
 p, label, span, div {
-    color: #d1d5db !important;
+    color: #e5e5e5 !important;
 }
 
 /* Buttons */
 div.stButton > button:first-child {
-    background: linear-gradient(90deg, #00b36b, #00ff88);
-    color: #0b0c10;
+    background: linear-gradient(90deg, #2c2f36, #3b3f47);
+    color: #ffffff;
     border-radius: 8px;
     border: none;
     padding: 0.6em 1.4em;
     font-weight: 600;
     font-size: 1em;
-    transition: 0.3s ease;
+    transition: all 0.3s ease;
 }
 div.stButton > button:first-child:hover {
-    background: linear-gradient(90deg, #00ff88, #00b36b);
-    transform: scale(1.05);
+    background: linear-gradient(90deg, #3f434b, #4a4f57);
+    transform: scale(1.03);
 }
 
-/* Expander */
+/* Expanders */
 .streamlit-expanderHeader {
-    background-color: #1a1c22 !important;
-    color: #00ff88 !important;
-    font-weight: 600;
+    background-color: #1b1f25 !important;
+    color: #ffffff !important;
+    font-weight: 500;
+    border-radius: 5px;
+}
+
+/* Success and error boxes */
+.stSuccess {
+    background-color: rgba(56, 178, 172, 0.1);
+    border-left: 4px solid #38b2ac;
+    border-radius: 6px;
+}
+.stError {
+    background-color: rgba(255, 82, 82, 0.1);
+    border-left: 4px solid #ff5252;
     border-radius: 6px;
 }
 
-/* Success boxes */
-.stSuccess {
-    background-color: rgba(0, 255, 136, 0.15);
-    border-left: 5px solid #00ff88;
-    padding: 0.8em;
-    border-radius: 8px;
-}
-
-/* Error box */
-.stError {
-    background-color: rgba(255, 0, 60, 0.15);
-    border-left: 5px solid #ff0040;
-    border-radius: 8px;
-}
-
-/* Metric cards */
-[data-testid="stMetricValue"] {
-    color: #00ff88 !important;
-    font-weight: bold;
-}
-
-/* DataFrame styling */
+/* DataFrames */
 [data-testid="stDataFrame"] {
     border-radius: 8px;
     overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0,255,136,0.2);
-    background-color: #111418;
+    box-shadow: 0 2px 8px rgba(255,255,255,0.05);
+    background-color: #16191f;
 }
 
-/* Divider color */
+/* Divider */
 hr {
-    border: 1px solid #1f2937;
+    border: 1px solid #2a2e35;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -100,17 +91,18 @@ hr {
 
 # --- HEADER ---
 st.title("📊 Subchassis Mapper Tool")
-st.caption("A dark-themed data mapping tool with green highlights and smart styling.")
+st.caption("Dark mode enabled — a clean and professional data mapping tool.")
 st.divider()
 
 # --- INSTRUCTIONS ---
 st.markdown("""
-### ⚙️ **How to Use**
+### 🧭 **How to Use**
 1️⃣ Upload your **Planning File**  
-2️⃣ Choose the correct **Sheet** and **Style Column**  
+2️⃣ Select **Sheet** and **Style Column**  
 3️⃣ Upload your **Subchassis Reference Report**  
-4️⃣ Select **Customer**, **Department**, and optionally **Season**  
-5️⃣ Click **Map Subchassis** to process and download your mapped data  
+4️⃣ Choose **Customer**, **Department**, and optionally **Season**  
+5️⃣ Click **Map Subchassis** to generate and download the results  
+
 ---
 """)
 
@@ -175,7 +167,7 @@ if uploaded_sub:
 
 
 # --- STEP 3: MAP PROCESS ---
-if planning_df is not None and sub_df is not None and st.button("💚 Map Subchassis"):
+if planning_df is not None and sub_df is not None and st.button("🚀 Map Subchassis"):
     try:
         planning_df[style_col_plan] = planning_df[style_col_plan].astype(str).str.strip()
         sub_df[style_col_sub] = sub_df[style_col_sub].astype(str).str.strip()
@@ -209,8 +201,8 @@ if planning_df is not None and sub_df is not None and st.button("💚 Map Subcha
         st.subheader("📈 Mapping Summary")
         col1, col2, col3 = st.columns(3)
         col1.metric("Total Styles", total_styles)
-        col2.metric("Mapped Styles ✅", matched_styles)
-        col3.metric("Unmapped ❌", unmatched_styles)
+        col2.metric("Mapped", matched_styles)
+        col3.metric("Unmapped", unmatched_styles)
 
         st.subheader("👁 Preview of Mapped Data")
         st.dataframe(merged_df.head(20), use_container_width=True)
