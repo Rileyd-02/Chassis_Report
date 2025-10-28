@@ -3,112 +3,83 @@ import pandas as pd
 from io import BytesIO
 from openpyxl.styles import PatternFill
 
-# --- PAGE CONFIG ---
-st.set_page_config(
-    page_title="Subchassis Mapper",
-    layout="wide",
-    page_icon="📊",
-)
+# --- Page Config ---
+st.set_page_config(page_title="Subchassis Mapper", layout="wide")
 
-# --- DARK THEME CSS ---
+# --- Custom Dark Theme Styling ---
 st.markdown("""
 <style>
-/* Background and text */
+/* Backgrounds and general theme */
 [data-testid="stAppViewContainer"] {
-    background-color: #0e1117;
-    color: #f5f5f5;
-    font-family: 'Segoe UI', Roboto, sans-serif;
+    background-color: #0d1117;
+    color: white;
 }
-
-/* Sidebar */
+[data-testid="stHeader"] {
+    background-color: #0d1117;
+}
 [data-testid="stSidebar"] {
-    background-color: #1a1d23;
-    color: #f5f5f5;
+    background-color: #161b22;
+    color: white;
 }
 
-/* Headings */
-h1, h2, h3, h4 {
-    color: #ffffff !important;
-    font-weight: 600;
+/* Titles and text */
+h1, h2, h3, h4, h5, h6, p, div, label {
+    color: white !important;
 }
 
-/* General text */
-p, label, span, div {
-    color: #e5e5e5 !important;
+/* Upload box styling */
+[data-testid="stFileUploader"] section {
+    background-color: #1e252f !important;
+    border: 1px solid #2e3b4e !important;
+    border-radius: 10px;
+}
+[data-testid="stFileUploader"] section div {
+    color: white !important;
 }
 
 /* Buttons */
-div.stButton > button:first-child {
-    background: linear-gradient(90deg, #2c2f36, #3b3f47);
-    color: #ffffff;
+.stButton>button {
+    background-color: #30363d;
+    color: white;
+    border: 1px solid #6e7681;
     border-radius: 8px;
-    border: none;
-    padding: 0.6em 1.4em;
-    font-weight: 600;
-    font-size: 1em;
+    padding: 0.5em 1.2em;
+    font-weight: 500;
     transition: all 0.3s ease;
 }
-div.stButton > button:first-child:hover {
-    background: linear-gradient(90deg, #3f434b, #4a4f57);
-    transform: scale(1.03);
+.stButton>button:hover {
+    background-color: #484f58;
+    border-color: #8b949e;
+    color: white;
+    transform: scale(1.02);
 }
 
 /* Expanders */
 .streamlit-expanderHeader {
-    background-color: #1b1f25 !important;
-    color: #ffffff !important;
-    font-weight: 500;
-    border-radius: 5px;
+    background-color: #161b22 !important;
+    color: white !important;
 }
 
-/* Success and error boxes */
-.stSuccess {
-    background-color: rgba(56, 178, 172, 0.1);
-    border-left: 4px solid #38b2ac;
-    border-radius: 6px;
-}
-.stError {
-    background-color: rgba(255, 82, 82, 0.1);
-    border-left: 4px solid #ff5252;
-    border-radius: 6px;
-}
-
-/* DataFrames */
-[data-testid="stDataFrame"] {
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 2px 8px rgba(255,255,255,0.05);
-    background-color: #16191f;
-}
-
-/* Divider */
-hr {
-    border: 1px solid #2a2e35;
+/* Dropdowns, selects, and inputs */
+[data-baseweb="select"] > div, textarea, input {
+    background-color: #161b22 !important;
+    color: white !important;
+    border-radius: 8px !important;
 }
 </style>
 """, unsafe_allow_html=True)
 
-
-# --- HEADER ---
+# --- App Title ---
 st.title("📊 Subchassis Mapper Tool")
-st.caption("Dark mode enabled — a clean and professional data mapping tool.")
-st.divider()
 
-# --- INSTRUCTIONS ---
 st.markdown("""
-### 🧭 **How to Use**
-1️⃣ Upload your **Planning File**  
-2️⃣ Select **Sheet** and **Style Column**  
-3️⃣ Upload your **Subchassis Reference Report**  
-4️⃣ Choose **Customer**, **Department**, and optionally **Season**  
-5️⃣ Click **Map Subchassis** to generate and download the results  
+Upload your **Planning file** and **Subchassis reference report**.  
+Follow the steps below to complete the mapping process.  
 
 ---
 """)
 
-
-# --- STEP 1: UPLOAD PLANNING FILE ---
-st.subheader("🗂 Step 1: Upload Planning File")
+# --- Step 1: Upload Planning File ---
 uploaded_planning = st.file_uploader("Upload Planning Excel File", type=["xlsx"])
 planning_df = None
 style_col_plan = None
@@ -126,9 +97,7 @@ if uploaded_planning:
         style_candidates if style_candidates else planning_df.columns
     )
 
-
-# --- STEP 2: UPLOAD SUBCHASSIS FILE ---
-st.subheader("📘 Step 2: Upload Subchassis Reference File")
+# --- Step 2: Upload Subchassis Reference File ---
 uploaded_sub = st.file_uploader("Upload Subchassis Reference File", type=["xlsx"])
 sub_df = None
 
@@ -140,13 +109,15 @@ if uploaded_sub:
     st.success(f"✅ Loaded subchassis sheet: {selected_sheet_sub}")
 
     style_candidates_sub = [c for c in sub_df.columns if "style" in c.lower()]
-    style_col_sub = st.selectbox("Select Style Column", style_candidates_sub if style_candidates_sub else sub_df.columns)
+    style_col_sub = st.selectbox(
+        "Select Style Column in Subchassis File",
+        style_candidates_sub if style_candidates_sub else sub_df.columns
+    )
     customer_col = st.selectbox("Select Customer Column", sub_df.columns)
     dept_col = st.selectbox("Select Department Column", sub_df.columns)
     season_col = st.selectbox("Select Season Column (Optional)", ["<None>"] + list(sub_df.columns))
 
-    # --- FILTERS ---
-    with st.expander("🔍 Apply Filters (Optional)"):
+    with st.expander("🔎 Apply Filters (Optional)"):
         customer_filter = st.multiselect(
             "Filter by Customer",
             options=sub_df[customer_col].dropna().unique(),
@@ -165,9 +136,8 @@ if uploaded_sub:
                 default=sub_df[season_col].dropna().unique()
             )
 
-
-# --- STEP 3: MAP PROCESS ---
-if planning_df is not None and sub_df is not None and st.button("🚀 Map Subchassis"):
+# --- Step 3: Mapping Logic ---
+if planning_df is not None and sub_df is not None and st.button("Map Subchassis"):
     try:
         planning_df[style_col_plan] = planning_df[style_col_plan].astype(str).str.strip()
         sub_df[style_col_sub] = sub_df[style_col_sub].astype(str).str.strip()
@@ -198,16 +168,16 @@ if planning_df is not None and sub_df is not None and st.button("🚀 Map Subcha
         matched_styles = merged_df["LatestSubChassis"].notna().sum()
         unmatched_styles = total_styles - matched_styles
 
-        st.subheader("📈 Mapping Summary")
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Total Styles", total_styles)
-        col2.metric("Mapped", matched_styles)
-        col3.metric("Unmapped", unmatched_styles)
+        st.subheader("📋 Summary")
+        st.markdown(f"""
+        - **Total Styles in Planning File:** {total_styles}  
+        - **Mapped Styles:** ✅ {matched_styles}  
+        - **Unmapped Styles:** ❌ {unmatched_styles}  
+        """)
 
-        st.subheader("👁 Preview of Mapped Data")
-        st.dataframe(merged_df.head(20), use_container_width=True)
+        st.subheader("👀 Preview of Mapped Data")
+        st.dataframe(merged_df.head(20))
 
-        # Save and highlight missing values
         output = BytesIO()
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
             merged_df.to_excel(writer, index=False, sheet_name="Mapped Data")
