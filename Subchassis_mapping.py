@@ -3,92 +3,90 @@ import pandas as pd
 from io import BytesIO
 from openpyxl.styles import PatternFill
 
-# -------------------------------------------------------
-# 🔧 Streamlit Page Setup
-# -------------------------------------------------------
 st.set_page_config(page_title="Subchassis Mapper", layout="wide")
 
 st.title("📊 Subchassis Mapper Tool")
+
 st.markdown("""
 Upload your **Planning file** and **Subchassis reference report**.  
 You will be guided step by step to select the correct columns for mapping.
+            Step 01 - Upload planning file 
+            Step 02 - Select sheet name from the dropdown
+            Step 03 - Upload Subchassis reference report
+            Step 04 - Select sheet name, Customer Column, Department Column, Season Column
+            Step 05 - Filter the mapped documents 
+You will be guided step by step to select the correct columns for mapping.  
 
 ---
+
 ### 📝 Steps
+
 1️⃣ **Step 01** – Upload Planning file  
+
 2️⃣ **Step 02** – Select sheet name from the dropdown  
+
 3️⃣ **Step 03** – Upload Subchassis reference report  
+
 4️⃣ **Step 04** – Select sheet name, Customer Column, Department Column, Season Column  
-5️⃣ **Step 05** – Filter and map the documents  
+
+5️⃣ **Step 05** – Filter the mapped documents  
+
 ---
 """)
 
-# -------------------------------------------------------
-# 🧾 Step 1: Upload Planning File
-# -------------------------------------------------------
-uploaded_planning = st.file_uploader("📂 Upload Planning Excel File", type=["xlsx"])
+
+# --- Step 1: Upload Planning File ---
+uploaded_planning = st.file_uploader("Upload Planning Excel File", type=["xlsx"])
 planning_df = None
 style_col_plan = None
 
 if uploaded_planning:
     planning_excel = pd.ExcelFile(uploaded_planning, engine="openpyxl")
     sheet_names = planning_excel.sheet_names
-
     selected_sheet = st.selectbox("Select Sheet from Planning File", sheet_names)
     planning_df = planning_excel.parse(selected_sheet)
+    st.success(f"✅ Loaded planning sheet: {selected_sheet}")
 
-    st.success(f"✅ Loaded planning sheet: **{selected_sheet}**")
-
-    # Let user pick style column (try to detect columns containing 'style')
+    # Let user pick style column from planning file (columns containing "style")
     style_candidates = [c for c in planning_df.columns if "style" in c.lower()]
     style_col_plan = st.selectbox(
         "Select Style Column in Planning File",
         style_candidates if style_candidates else planning_df.columns
     )
 
-# -------------------------------------------------------
-# 📘 Step 2: Upload Subchassis Reference File
-# -------------------------------------------------------
-uploaded_sub = st.file_uploader("📂 Upload Subchassis Reference File", type=["xlsx"])
+# --- Step 2: Upload Subchassis Reference File ---
+uploaded_sub = st.file_uploader("Upload Subchassis Reference File", type=["xlsx"])
 sub_df = None
 
 if uploaded_sub:
     sub_excel = pd.ExcelFile(uploaded_sub, engine="openpyxl")
     sheet_names_sub = sub_excel.sheet_names
-
     selected_sheet_sub = st.selectbox("Select Sheet from Subchassis File", sheet_names_sub)
     sub_df = sub_excel.parse(selected_sheet_sub)
+    st.success(f"✅ Loaded subchassis sheet: {selected_sheet_sub}")
 
-    st.success(f"✅ Loaded subchassis sheet: **{selected_sheet_sub}**")
-
-    # Select important columns
+    # Pick style, customer, department, season columns
     style_candidates_sub = [c for c in sub_df.columns if "style" in c.lower()]
     style_col_sub = st.selectbox(
         "Select Style Column in Subchassis File",
         style_candidates_sub if style_candidates_sub else sub_df.columns
     )
-
     customer_col = st.selectbox("Select Customer Column", sub_df.columns)
     dept_col = st.selectbox("Select Department Column", sub_df.columns)
     season_col = st.selectbox("Select Season Column (Optional)", ["<None>"] + list(sub_df.columns))
 
-# -------------------------------------------------------
-# 🎛️ Step 3: Apply Filters
-# -------------------------------------------------------
-with st.expander("🔎 Apply Filters (Optional)"):
-    if sub_df is not None:
+    # --- Step 3: Add Filters ---
+    with st.expander("🔎 Apply Filters (Optional)"):
         customer_filter = st.multiselect(
             "Filter by Customer",
             options=sub_df[customer_col].dropna().unique(),
             default=sub_df[customer_col].dropna().unique()
         )
-
         dept_filter = st.multiselect(
             "Filter by Department",
             options=sub_df[dept_col].dropna().unique(),
             default=sub_df[dept_col].dropna().unique()
         )
-
         season_filter = None
         if season_col != "<None>":
             season_filter = st.multiselect(
@@ -97,12 +95,10 @@ with st.expander("🔎 Apply Filters (Optional)"):
                 default=sub_df[season_col].dropna().unique()
             )
 
-# -------------------------------------------------------
-# 🔗 Step 4: Process Mapping
-# -------------------------------------------------------
-if planning_df is not None and sub_df is not None and st.button("🚀 Map Subchassis"):
+# --- Step 4: Process Mapping ---
+if planning_df is not None and sub_df is not None and st.button("Map Subchassis"):
     try:
-        # Clean style columns (remove spaces)
+        # Clean style columns
         planning_df[style_col_plan] = planning_df[style_col_plan].astype(str).str.strip()
         sub_df[style_col_sub] = sub_df[style_col_sub].astype(str).str.strip()
 
@@ -114,12 +110,12 @@ if planning_df is not None and sub_df is not None and st.button("🚀 Map Subcha
         if season_filter is not None:
             sub_filtered = sub_filtered[sub_filtered[season_col].isin(season_filter)]
 
-        # Select columns for merging
+        # Always include style + latestsubchassis + customer + department (+ season if selected)
         merge_cols = [style_col_sub, "LatestSubChassis", customer_col, dept_col]
         if season_col and season_col != "<None>":
             merge_cols.append(season_col)
 
-        # Merge data
+        # Merge
         merged_df = pd.merge(
             planning_df,
             sub_filtered[merge_cols],
@@ -128,13 +124,11 @@ if planning_df is not None and sub_df is not None and st.button("🚀 Map Subcha
             how="left"
         )
 
-        # Remove duplicate style column if needed
+        # Drop duplicate key column if different
         if style_col_sub != style_col_plan:
             merged_df.drop(columns=[style_col_sub], inplace=True)
 
-        # -------------------------------------------------------
-        # 📊 Summary
-        # -------------------------------------------------------
+        # --- Summary ---
         total_styles = len(planning_df)
         matched_styles = merged_df["LatestSubChassis"].notna().sum()
         unmatched_styles = total_styles - matched_styles
@@ -143,27 +137,21 @@ if planning_df is not None and sub_df is not None and st.button("🚀 Map Subcha
         st.markdown(f"""
         - **Total Styles in Planning File:** {total_styles}  
         - **Mapped Styles:** ✅ {matched_styles}  
-        - **Unmapped Styles:** ❌ {unmatched_styles}
+        - **Unmapped Styles:** ❌ {unmatched_styles}  
         """)
 
-        # -------------------------------------------------------
-        # 👀 Preview
-        # -------------------------------------------------------
+        # --- Preview first 20 rows ---
         st.subheader("👀 Preview of Mapped Data")
         st.dataframe(merged_df.head(20))
 
-        # -------------------------------------------------------
-        # 💾 Export to Excel
-        # -------------------------------------------------------
+        # Save with highlights for missing LatestSubChassis
         output = BytesIO()
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
             merged_df.to_excel(writer, index=False, sheet_name="Mapped Data")
             ws = writer.sheets["Mapped Data"]
 
-            # Highlight missing LatestSubChassis in red
             red_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
             latest_col_idx = merged_df.columns.get_loc("LatestSubChassis") + 1
-
             for row_idx, value in enumerate(merged_df["LatestSubChassis"], start=2):
                 if pd.isna(value):
                     ws.cell(row=row_idx, column=latest_col_idx).fill = red_fill
